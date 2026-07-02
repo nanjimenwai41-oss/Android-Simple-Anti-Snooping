@@ -20,7 +20,6 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://api.xposed.info/") }
-        maven { url = uri("https://pkgs.dev.azure.com/XiaomiMIUI/miuix/_maven/v1") }
     }
 }
 
