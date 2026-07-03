@@ -1,4 +1,4 @@
-package com.fuck.snooping;
+package com.antisnooping.hook;
 
 import android.os.Bundle;
 

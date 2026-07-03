@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">AntiSnoopingModule</string>
+    <string name="app_name">AntiSnooping</string>
+    <string name="accessibility_service_label">强力防偷窥</string>
+    <string name="accessibility_description">用于实时检测屏幕黑名单词汇并启动防偷窥保护。</string>
 </resources>

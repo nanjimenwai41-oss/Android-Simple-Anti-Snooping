@@ -1,63 +1,65 @@
-# Android-Simple-Anti-Snooping
+# AntiSnooping
 
-[简体中文](#android-simple-anti-snooping-中文) | [English](#android-simple-anti-snooping-en)
+[简体中文](#antisnooping-中文) | [English](#antisnooping-en)
 
 ---
 
-## Android-Simple-Anti-Snooping (中文)
+## AntiSnooping (中文)
 
 这是一个基于 Android 平台 Xposed/LSPosed 框架开发的强力防偷窥模块。
 
+### 版本信息
+
+*   **当前版本**: 1.1
+*   **版本号**: 78
+*   **更新内容**:
+    1. 增强微信朋友圈拦截 (全维度匹配)
+    2. 优化拦截后返回体验 (自动退出当前 Activity)
+
 ### 核心功能
 
-* ~~后台全屏纯白贴图覆盖：当检测到目标应用启动时，模块会自动向当前的 Activity 顶层注入一个与屏幕等宽等高的纯白 View 布局进行完全遮挡。~~（未完善）
-* 在覆盖白屏的同时，会弹出一个~~完全继承当前手机系统原生样式（例如 MIUI / HyperOS 风格）的~~警告弹窗。用户点击确定后，模块将直接调用底层接口退出该应用并清理后台进程。（未完善）
-* 完备的变砖防护机制：代码层层面过滤了系统核心进程（如 SystemUI、系统桌面等）以及模块自身包名，防止因范围扩大导致手机死机或卡成砖的情况。（待测试）
+*   **微信朋友圈拦截**: 深度拦截微信朋友圈（SnsTimelineUI 等），支持 Intent 启动拦截与 UI 元素动态扫描，防止“闪现”。
+*   **安全弹窗提示**: 检测到非法访问时，弹出系统级安全对话框。
+*   **防护机制**: 自动过滤系统核心进程，确保模块运行安全，不导致系统崩溃。
 
 ### 使用方法
 
-1. 下载安装。
+1. 下载并安装模块。
 2. 在 LSPosed 管理器中启用模块。
-3. 勾选对应作用域。
-4. 重启作用域。
+3. 勾选对应作用域（推荐：微信）。
+4. 重启目标应用。
 
-### 画饼
+### 开源协议
 
-1. 仿 Lsposed 界面
-2. APP 内切换黑白名单
-3. 定时拦截
-4. 伪装反偷窥行为
-
-### 写在最后
-
-本项目完全由 AI 负责，本人只负责思路和测试，如有不专业之处敬请谅解！
+本项目采用 [AGPL-3.0](LICENSE) 协议开源。
 
 ---
 
-## Android-Simple-Anti-Snooping (EN)
+## AntiSnooping (EN)
 
-This is a powerful anti-snooping module based on the Android platform Xposed/LSPosed framework.
+A powerful anti-snooping module based on the Android Xposed/LSPosed framework.
+
+### Version Info
+
+*   **Version**: 1.1
+*   **Version Code**: 78
+*   **Changelog**:
+    1. Enhanced WeChat Moments interception (Full-dimensional matching).
+    2. Optimized return experience (Auto-finish current Activity).
 
 ### Core Features
 
-* ~~Background full-screen pure white layout coverage: When the target application is detected to start, the module will automatically inject a pure white View layout with the same width and height as the screen to the top layer of the current Activity for complete occlusion.~~ (Incomplete)
-* While covering the white screen, ~~a warning pop-up window that completely inherits the native style of the current mobile phone system (such as MIUI / HyperOS style) will pop up. After the user clicks confirm, the module will directly call the underlying interface to exit the application and clean up the background process.~~ (Incomplete)
-* Complete brick-proof mechanism: The code layer filters the core processes of the system (such as SystemUI, system desktop, etc.) and the module's own package name to prevent the phone from crashing or turning into a brick due to the expansion of the scope. (To be tested)
+*   **Moments Interception**: Deeply intercepts WeChat Moments (SnsTimelineUI, etc.), supporting Intent interception and UI scanning to prevent leaks.
+*   **Security Dialog**: Pops up a system-style security dialog when unauthorized access is detected.
+*   **Brick Protection**: Filters system core processes to ensure stability.
 
 ### Usage
 
 1. Download and install.
 2. Enable the module in LSPosed Manager.
-3. Check the corresponding scope.
-4. Restart the scope.
+3. Check the scope (Recommended: WeChat).
+4. Restart the target app.
 
-### Roadmap
+### License
 
-1. Simulated LSPosed interface
-2. Toggle black and white list within the APP
-3. Scheduled interception
-4. Camouflage anti-snooping behavior
-
-### Postscript
-
-This project is entirely handled by AI. I am only responsible for ideas and testing. Please forgive any unprofessional aspects!
+This project is licensed under the [AGPL-3.0](LICENSE).
