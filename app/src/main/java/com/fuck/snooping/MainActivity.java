@@ -32,30 +32,43 @@ public class MainActivity extends AppCompatActivity {
         initView();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateScopeInfo();
+    }
+
     private void initView() {
         MaterialCardView statusCard = findViewById(R.id.card_status);
         ImageView statusIcon = findViewById(R.id.iv_status_icon);
         TextView statusTitle = findViewById(R.id.tv_status_title);
         TextView statusSummary = findViewById(R.id.tv_status_summary);
 
+        boolean isDarkMode = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+
         if (isModuleActive()) {
-            statusCard.setCardBackgroundColor(Color.parseColor("#C8E6C9"));
+            statusCard.setCardBackgroundColor(isDarkMode ? Color.parseColor("#1B5E20") : Color.parseColor("#C8E6C9"));
             statusIcon.setImageResource(android.R.drawable.checkbox_on_background);
             statusTitle.setText("模块已激活");
-            statusTitle.setTextColor(Color.parseColor("#2E7D32"));
+            statusTitle.setTextColor(isDarkMode ? Color.parseColor("#81C784") : Color.parseColor("#2E7D32"));
             statusSummary.setText("LSPosed 框架运行正常");
-            statusSummary.setTextColor(Color.parseColor("#2E7D32"));
+            statusSummary.setTextColor(isDarkMode ? Color.parseColor("#81C784") : Color.parseColor("#2E7D32"));
         } else {
-            statusCard.setCardBackgroundColor(Color.parseColor("#FFCCBC"));
+            statusCard.setCardBackgroundColor(isDarkMode ? Color.parseColor("#B71C1C") : Color.parseColor("#FFCCBC"));
             statusIcon.setImageResource(android.R.drawable.ic_delete);
             statusTitle.setText("模块未激活");
-            statusTitle.setTextColor(Color.parseColor("#BF360C"));
+            statusTitle.setTextColor(isDarkMode ? Color.parseColor("#E57373") : Color.parseColor("#BF360C"));
             statusSummary.setText("请在 LSPosed 管理器中启用模块并重启");
-            statusSummary.setTextColor(Color.parseColor("#BF360C"));
+            statusSummary.setTextColor(isDarkMode ? Color.parseColor("#E57373") : Color.parseColor("#BF360C"));
         }
 
-        TextView tvScope = findViewById(R.id.tv_scope_info);
-        tvScope.setText("1 个应用 (微信)");
+        updateScopeInfo();
+
+        MaterialCardView scopeCard = findViewById(R.id.card_scope);
+        scopeCard.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ScopeActivity.class);
+            startActivity(intent);
+        });
 
         TextView tvDeviceInfo = findViewById(R.id.tv_device_info);
         String deviceInfo = "型号: " + Build.MODEL + "\n" +
@@ -69,6 +82,12 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Zachian"));
             startActivity(intent);
         });
+    }
+
+    private void updateScopeInfo() {
+        TextView tvScopeCount = findViewById(R.id.tv_scope_count);
+        int count = Config.getEnabledApps(this).size();
+        tvScopeCount.setText(String.valueOf(count));
     }
 
     /**
