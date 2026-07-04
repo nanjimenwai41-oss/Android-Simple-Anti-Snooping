@@ -17,10 +17,13 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="强力防偷窥 v1.1：增强微信朋友圈拦截，优化拦截后返回体验。" />
+            android:value="Fuck Snooping!" />
         <meta-data
             android:name="xposedminversion"
             android:value="82" />
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
 
         <activity
             android:name=".MainActivity"

@@ -8,14 +8,6 @@
 
 这是一个基于 Android 平台 Xposed/LSPosed 框架开发的强力防偷窥模块。
 
-### 版本信息
-
-*   **当前版本**: 1.1
-*   **版本号**: 78
-*   **更新内容**:
-    1. 增强微信朋友圈拦截 (全维度匹配)
-    2. 优化拦截后返回体验 (自动退出当前 Activity)
-
 ### 核心功能
 
 *   **微信朋友圈拦截**: 深度拦截微信朋友圈（SnsTimelineUI 等），支持 Intent 启动拦截与 UI 元素动态扫描，防止“闪现”。
@@ -26,7 +18,7 @@
 
 1. 下载并安装模块。
 2. 在 LSPosed 管理器中启用模块。
-3. 勾选对应作用域（推荐：微信）。
+3. 勾选对应作用域。
 4. 重启目标应用。
 
 ### 开源协议
@@ -39,14 +31,6 @@
 
 A powerful anti-snooping module based on the Android Xposed/LSPosed framework.
 
-### Version Info
-
-*   **Version**: 1.1
-*   **Version Code**: 78
-*   **Changelog**:
-    1. Enhanced WeChat Moments interception (Full-dimensional matching).
-    2. Optimized return experience (Auto-finish current Activity).
-
 ### Core Features
 
 *   **Moments Interception**: Deeply intercepts WeChat Moments (SnsTimelineUI, etc.), supporting Intent interception and UI scanning to prevent leaks.
@@ -57,7 +41,7 @@ A powerful anti-snooping module based on the Android Xposed/LSPosed framework.
 
 1. Download and install.
 2. Enable the module in LSPosed Manager.
-3. Check the scope (Recommended: WeChat).
+3. Check the scope.
 4. Restart the target app.
 
 ### License
