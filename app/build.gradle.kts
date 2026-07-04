@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "com.antisnooping.hook"
+    namespace = "com.fuck.snooping"
     compileSdk = 37
 
     defaultConfig {
         // Use a neutral applicationId so the package name shown in system settings
         // does not contain offensive words.
-        applicationId = "com.antisnooping.hook"
+        applicationId = "com.fuck.snooping"
         minSdk = 29
         targetSdk = 37
         versionCode = 91

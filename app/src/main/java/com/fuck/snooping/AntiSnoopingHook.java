@@ -1,4 +1,4 @@
-package com.antisnooping.hook;
+package com.fuck.snooping;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -36,6 +36,15 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
+        if ("com.fuck.snooping".equals(lpparam.packageName)) {
+            XposedHelpers.findAndHookMethod("com.fuck.snooping.MainActivity", lpparam.classLoader, "isModuleActive", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    param.setResult(true);
+                }
+            });
+        }
+
         if (!WECHAT_PACKAGE.equals(lpparam.packageName)) {
             return;
         }
