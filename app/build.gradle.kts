@@ -4,16 +4,16 @@ plugins {
 
 android {
     namespace = "com.antisnooping.hook"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         // Use a neutral applicationId so the package name shown in system settings
         // does not contain offensive words.
         applicationId = "com.antisnooping.hook"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 78
-        versionName = "1.1"
+        targetSdk = 37
+        versionCode = 91
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -26,8 +26,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
@@ -39,5 +39,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
-    compileOnly("de.robv.android.xposed:api:82")
+    compileOnly(libs.xposed.api)
 }
