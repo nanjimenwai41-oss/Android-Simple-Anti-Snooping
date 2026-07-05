@@ -15,38 +15,37 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import io.github.libxposed.api.XposedModule;
 
-public class AntiSnoopingHook implements IXposedHookLoadPackage {
+public class AntiSnoopingHook extends XposedModule {
 
     private static final String WECHAT_PACKAGE = "com.tencent.mm";
     private static final int DIALOG_SHOWN_TAG_ID = 0x7f010001;
     private static final int SCAN_STATE_TAG_ID = 0x7f010002;
     private static final int TARGET_VIEW_TAG_ID = 0x7f010003;
-    private static boolean globalSkipScan = false; 
+    private static boolean globalSkipScan = false;
     private static WeakReference<View> lastClickedView;
 
-    /**
-     * 实时查询主程序开关状态
-     */
+    public AntiSnoopingHook() {
+        super();
+    }
+
     private boolean isEnabledRemote(Context context, String packageName) {
         if (context == null) return WECHAT_PACKAGE.equals(packageName);
         try {
-            // 使用 Context 的 ContentResolver 调用模块的 Provider
             Bundle res = context.getContentResolver().call(
                     Uri.parse("content://com.fuck.snooping.scope"),
                     "is_enabled", packageName, null);
             return res != null && res.getBoolean("enabled", false);
         } catch (Throwable t) {
-            // 通讯失败时，微信默认开启，其他应用默认关闭，防止误拦
             return WECHAT_PACKAGE.equals(packageName);
         }
     }
@@ -63,158 +62,157 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
     ));
 
     @Override
-    public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
+    public void onPackageLoaded(@NonNull PackageLoadedParam param) {
+        super.onPackageLoaded(param);
+        String packageName = param.getPackageName();
+        ClassLoader classLoader = param.getDefaultClassLoader();
+        String modulePackageName = getModuleApplicationInfo().packageName;
+
         // 注册激活状态
-        if (!"android".equals(lpparam.packageName) && !lpparam.packageName.equals("com.fuck.snooping")) {
-            XposedHelpers.findAndHookMethod("android.app.Application", lpparam.classLoader, "onCreate", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+        if (!"android".equals(packageName) && !packageName.equals(modulePackageName)) {
+            try {
+                Method onCreate = classLoader.loadClass("android.app.Application").getDeclaredMethod("onCreate");
+                hook(onCreate).intercept(chain -> {
+                    Context context = (Context) chain.getThisObject();
                     try {
-                        Context context = (Context) param.thisObject;
-                        context.getContentResolver().call(Uri.parse("content://com.fuck.snooping.scope"), 
-                                "register_scope", lpparam.packageName, null);
+                        context.getContentResolver().call(Uri.parse("content://com.fuck.snooping.scope"),
+                                "register_scope", packageName, null);
                     } catch (Throwable ignored) {}
-                }
-            });
+                    return chain.proceed();
+                });
+            } catch (Throwable ignored) {}
         }
 
-        if ("com.fuck.snooping".equals(lpparam.packageName)) {
-            XposedHelpers.findAndHookMethod("com.fuck.snooping.MainActivity", lpparam.classLoader, "isModuleActive", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    param.setResult(true);
-                }
-            });
+        if (modulePackageName.equals(packageName)) {
+            try {
+                Method isModuleActive = classLoader.loadClass("com.fuck.snooping.MainActivity").getDeclaredMethod("isModuleActive");
+                hook(isModuleActive).intercept(chain -> true);
+            } catch (Throwable ignored) {}
             return;
         }
 
         // --- 生命周期拦截 ---
-        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) {
-                Activity activity = (Activity) param.thisObject;
-                if (!isEnabledRemote(activity, lpparam.packageName)) return;
+        try {
+            Method onResume = Activity.class.getDeclaredMethod("onResume");
+            hook(onResume).intercept(chain -> {
+                Object result = chain.proceed();
+                Activity activity = (Activity) chain.getThisObject();
+                if (isEnabledRemote(activity, packageName)) {
+                    View contentView = activity.findViewById(android.R.id.content);
+                    if (contentView != null) contentView.setTag(SCAN_STATE_TAG_ID, "READY");
 
-                View contentView = activity.findViewById(android.R.id.content);
-                if (contentView != null) contentView.setTag(SCAN_STATE_TAG_ID, "READY");
-
-                String className = activity.getClass().getName();
-                if (WECHAT_PACKAGE.equals(lpparam.packageName)) {
-                    if (isTargetActivity(className)) showSecurityDialog(activity);
-                } else {
-                    // 普通 APP：拦截除首页外的所有启动或恢复（也可以在此加特定包名过滤）
-                    showSecurityDialog(activity);
+                    String className = activity.getClass().getName();
+                    if (WECHAT_PACKAGE.equals(packageName)) {
+                        if (isTargetActivity(className)) showSecurityDialog(activity);
+                    } else {
+                        showSecurityDialog(activity);
+                    }
                 }
-            }
-        });
+                return result;
+            });
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onRestart", new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
+            Method onRestart = Activity.class.getDeclaredMethod("onRestart");
+            hook(onRestart).intercept(chain -> {
                 globalSkipScan = true;
-            }
-        });
+                return chain.proceed();
+            });
 
-        if (WECHAT_PACKAGE.equals(lpparam.packageName)) {
-            hookWeChatClickEvents(lpparam);
+            Method onWindowFocusChanged = Activity.class.getDeclaredMethod("onWindowFocusChanged", boolean.class);
+            hook(onWindowFocusChanged).intercept(chain -> {
+                Object result = chain.proceed();
+                boolean hasFocus = (boolean) chain.getArgs().get(0);
+                if (hasFocus) {
+                    final Activity activity = (Activity) chain.getThisObject();
+                    if (isEnabledRemote(activity, packageName)) {
+                        if (globalSkipScan) {
+                            globalSkipScan = false;
+                            View cv = activity.findViewById(android.R.id.content);
+                            if (cv != null) cv.setTag(SCAN_STATE_TAG_ID, "DONE");
+                        } else {
+                            View cv = activity.findViewById(android.R.id.content);
+                            if (cv != null && "READY".equals(cv.getTag(SCAN_STATE_TAG_ID))) {
+                                cv.setTag(SCAN_STATE_TAG_ID, "DONE");
+                                checkViewTreeRecursive(activity.getWindow().getDecorView(), activity);
+                            }
+                        }
+                    }
+                }
+                return result;
+            });
+        } catch (Throwable ignored) {}
+
+        if (WECHAT_PACKAGE.equals(packageName)) {
             try {
-                XC_MethodHook skipHook = new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) { globalSkipScan = true; }
-                };
-                XposedHelpers.findAndHookMethod("com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI", lpparam.classLoader, "finish", skipHook);
-                XposedHelpers.findAndHookMethod("com.tencent.mm.ui.chatting.TextPreviewUI", lpparam.classLoader, "finish", skipHook);
+                Method performClick = View.class.getDeclaredMethod("performClick");
+                hook(performClick).intercept(chain -> {
+                    View view = (View) chain.getThisObject();
+                    lastClickedView = new WeakReference<>(view);
+                    if (isMomentsEntryView(view)) {
+                        Context context = view.getContext();
+                        if (context instanceof Activity) {
+                            view.setPressed(false);
+                            showSecurityDialog((Activity) context);
+                            return true;
+                        }
+                    }
+                    return chain.proceed();
+                });
+            } catch (Throwable ignored) {}
+
+            try {
+                Method finish = classLoader.loadClass("com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI").getDeclaredMethod("finish");
+                hook(finish).intercept(chain -> { globalSkipScan = true; return chain.proceed(); });
+            } catch (Throwable ignored) {}
+            try {
+                Method finish = classLoader.loadClass("com.tencent.mm.ui.chatting.TextPreviewUI").getDeclaredMethod("finish");
+                hook(finish).intercept(chain -> { globalSkipScan = true; return chain.proceed(); });
             } catch (Throwable ignored) {}
         }
 
         // --- 启动拦截 ---
         try {
-            XposedHelpers.findAndHookMethod("android.app.Instrumentation", lpparam.classLoader,
+            Method execStartActivity = classLoader.loadClass("android.app.Instrumentation").getDeclaredMethod(
                     "execStartActivity",
-                    Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            Context context = (Context) param.args[0];
-                            if (context == null || !isEnabledRemote(context, lpparam.packageName)) return;
-
-                            Intent intent = (Intent) param.args[4];
-                            if (intent == null || intent.getComponent() == null) return;
-                            String className = intent.getComponent().getClassName();
-
-                            if (WECHAT_PACKAGE.equals(lpparam.packageName)) {
-                                if (className.contains("TextPreviewUI")) return;
-                                Activity src = (Activity) param.args[3];
-                                if (src != null && src.getClass().getName().contains("TextPreviewUI")) return;
-                                
-                                if (isTargetActivity(className)) {
-                                    Activity current = (Activity) param.args[3];
-                                    if (current != null) showSecurityDialog(current);
-                                    param.setResult(null);
-                                }
-                            } else {
-                                // 普通应用：启动界面即拦截
-                                Activity current = (Activity) param.args[3];
-                                if (current != null) {
-                                    showSecurityDialog(current);
-                                    param.setResult(null);
+                    Context.class, IBinder.class, IBinder.class, Activity.class, Intent.class, int.class, Bundle.class);
+            hook(execStartActivity).intercept(chain -> {
+                Object[] args = chain.getArgs().toArray();
+                Context context = (Context) args[0];
+                if (context != null && isEnabledRemote(context, packageName)) {
+                    Intent intent = (Intent) args[4];
+                    if (intent != null && intent.getComponent() != null) {
+                        String className = intent.getComponent().getClassName();
+                        if (WECHAT_PACKAGE.equals(packageName)) {
+                            if (!className.contains("TextPreviewUI")) {
+                                Activity src = (Activity) args[3];
+                                if (src == null || !src.getClass().getName().contains("TextPreviewUI")) {
+                                    if (isTargetActivity(className)) {
+                                        Activity current = (Activity) args[3];
+                                        if (current != null) showSecurityDialog(current);
+                                        return null;
+                                    }
                                 }
                             }
+                        } else {
+                            Activity current = (Activity) args[3];
+                            if (current != null) {
+                                showSecurityDialog(current);
+                                return null;
+                            }
                         }
-                    });
-        } catch (Throwable ignored) {}
-
-        // --- UI 扫描 ---
-        XposedHelpers.findAndHookMethod(Activity.class, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) {
-                boolean hasFocus = (boolean) param.args[0];
-                if (hasFocus) {
-                    final Activity activity = (Activity) param.thisObject;
-                    if (!isEnabledRemote(activity, lpparam.packageName)) return;
-
-                    if (globalSkipScan) {
-                        globalSkipScan = false;
-                        View cv = activity.findViewById(android.R.id.content);
-                        if (cv != null) cv.setTag(SCAN_STATE_TAG_ID, "DONE");
-                        return;
-                    }
-
-                    View cv = activity.findViewById(android.R.id.content);
-                    if (cv != null && "READY".equals(cv.getTag(SCAN_STATE_TAG_ID))) {
-                        cv.setTag(SCAN_STATE_TAG_ID, "DONE");
-                        checkViewTreeRecursive(activity.getWindow().getDecorView(), activity);
                     }
                 }
-            }
-        });
+                return chain.proceed();
+            });
+        } catch (Throwable ignored) {}
     }
 
     private boolean isTargetActivity(String className) {
         if (className == null) return false;
-        if (className.contains("plugin.sns.ui.SnsTimelineUI") || 
-            className.contains("plugin.sns.ui.Improve.ImproveSnsTimelineUI") ||
-            className.contains("plugin.sns.ui.SnsUserUI") ||
-            className.contains("com.tencent.mm.ui.AlbumUI")) return true;
+        if (className.contains("plugin.sns.ui.SnsTimelineUI") ||
+                className.contains("plugin.sns.ui.Improve.ImproveSnsTimelineUI") ||
+                className.contains("plugin.sns.ui.SnsUserUI") ||
+                className.contains("com.tencent.mm.ui.AlbumUI")) return true;
         return TARGET_ACTIVITIES.contains(className);
-    }
-
-    private void hookWeChatClickEvents(final LoadPackageParam lpparam) {
-        XposedHelpers.findAndHookMethod(View.class, "performClick", new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                View view = (View) param.thisObject;
-                lastClickedView = new WeakReference<>(view);
-                if (isMomentsEntryView(view)) {
-                    Context context = view.getContext();
-                    if (context instanceof Activity) {
-                        view.setPressed(false);
-                        showSecurityDialog((Activity) context);
-                        param.setResult(true);
-                    }
-                }
-            }
-        });
     }
 
     private boolean isMomentsEntryView(View view) {
@@ -243,8 +241,7 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
         if (view == null) return;
         String name = activity.getClass().getName();
         if (name.contains(".chatting.ChattingUI") || name.contains(".chatting.TextPreviewUI")) return;
-        
-        // --- LauncherUI 专项修复：点击触发逻辑 ---
+
         boolean isLauncher = name.contains(".ui.LauncherUI");
         if (isLauncher && !isDiscoverTabContext(activity.getWindow().getDecorView())) return;
 
@@ -253,7 +250,6 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
         if (view instanceof TextView) {
             String content = ((TextView) view).getText().toString();
             if ("朋友圈".equals(content) || "SnsTimeLine".equalsIgnoreCase(content)) {
-                // 在 LauncherUI 中，扫描到不弹窗，只打标记，依靠点击拦截
                 if (isContactInfo || isLauncher) markClickableParentAsTarget(view);
                 else showSecurityDialog(activity);
                 return;
@@ -300,9 +296,8 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
             @Override
             public void run() {
                 try {
-                    // 123云盘兼容性：增加 Activity 存活状态强效检查
                     if (activity.isFinishing() || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed())) return;
-                    
+
                     if (lastClickedView != null) {
                         View v = lastClickedView.get();
                         if (v != null) { v.setPressed(false); v.clearFocus(); }
@@ -310,7 +305,7 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
 
                     final ViewGroup contentView = activity.findViewById(android.R.id.content);
                     if (contentView == null) return;
-                    
+
                     if (contentView.getTag(DIALOG_SHOWN_TAG_ID) != null) return;
                     contentView.setTag(DIALOG_SHOWN_TAG_ID, true);
 
@@ -318,12 +313,11 @@ public class AntiSnoopingHook implements IXposedHookLoadPackage {
                     boolean isDarkMode = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
                     int theme = isDarkMode ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT;
 
-                    // 普通应用：全屏遮罩覆盖
                     if (!isWeChat && contentView.findViewWithTag("ANTI_SNOOP_MASK") == null) {
                         View maskView = new View(activity);
                         maskView.setTag("ANTI_SNOOP_MASK");
                         maskView.setLayoutParams(new ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT, 
+                                ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT));
                         maskView.setBackgroundColor(isDarkMode ? Color.BLACK : Color.WHITE);
                         maskView.setClickable(true);
