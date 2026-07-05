@@ -54,6 +54,7 @@ public class ScopeActivity extends AppCompatActivity {
     private int filterType = 0; // 0: All, 1: User, 2: System
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private SharedPreferences.OnSharedPreferenceChangeListener scopeListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,7 +79,18 @@ public class ScopeActivity extends AppCompatActivity {
         });
 
         setupSearch();
+        setupScopeListener();
         loadApps();
+    }
+
+    private void setupScopeListener() {
+        SharedPreferences scopePrefs = getSharedPreferences("active_scope_apps", 0);
+        scopeListener = (sharedPreferences, key) -> {
+            if ("apps".equals(key)) {
+                loadApps();
+            }
+        };
+        scopePrefs.registerOnSharedPreferenceChangeListener(scopeListener);
     }
 
     private void setupImmersion() {
@@ -179,9 +191,20 @@ public class ScopeActivity extends AppCompatActivity {
         }
 
         if (currentSortMode == 0) {
-            Collections.sort(displayList, (a, b) -> a.name.compareToIgnoreCase(b.name));
+            Collections.sort(displayList, (a, b) -> {
+                // 强制置顶逻辑：已开启或已激活的应用排在前面
+                boolean aTop = a.enabled || a.isActivated;
+                boolean bTop = b.enabled || b.isActivated;
+                if (aTop != bTop) return aTop ? -1 : 1;
+                return a.name.compareToIgnoreCase(b.name);
+            });
         } else {
-            Collections.sort(displayList, (a, b) -> a.packageName.compareToIgnoreCase(b.packageName));
+            Collections.sort(displayList, (a, b) -> {
+                boolean aTop = a.enabled || a.isActivated;
+                boolean bTop = b.enabled || b.isActivated;
+                if (aTop != bTop) return aTop ? -1 : 1;
+                return a.packageName.compareToIgnoreCase(b.packageName);
+            });
         }
 
         if (adapter == null) {
@@ -261,6 +284,8 @@ public class ScopeActivity extends AppCompatActivity {
             holder.switchEnable.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 info.enabled = isChecked;
                 Config.setAppEnabled(ScopeActivity.this, info.packageName, isChecked);
+                // 状态改变后重新排序
+                filterAndSort();
             });
         }
 

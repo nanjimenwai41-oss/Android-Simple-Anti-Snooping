@@ -79,8 +79,14 @@ public class MainActivity extends AppCompatActivity {
 
         MaterialCardView githubCard = findViewById(R.id.card_about);
         githubCard.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Zachian"));
-            startActivity(intent);
+            String url = "https://github.com/nanjimenwai41-oss/Android-Simple-Anti-Snooping";
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
+            }
         });
     }
 
